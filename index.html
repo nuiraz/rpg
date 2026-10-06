@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f1e">
+<meta name="description" content="RPG textuel de Nathan : mine, combats, donjons, marché, quêtes — jouable dans le navigateur.">
+<title>RPG de Nathan</title>
+<link rel="icon" href="img/icon-192.png">
+<link rel="apple-touch-icon" href="img/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <!-- ===== HUD (recréation du lobby.png) ===== -->
+  <header id="hud" class="frame">
+    <div class="hud-id">
+      <div id="badge" class="badge"><small>NIV</small><b id="h-lvl">1</b></div>
+      <div class="who">
+        <div class="name">NATHAN</div>
+        <div id="h-rank" class="rank">NOVICE</div>
+      </div>
+      <div class="gold" id="h-goldbox" title="Or sur toi / en banque">
+        <span class="coin"></span>
+        <div><b id="h-gold">0</b><small>banque <span id="h-bank">0</span></small></div>
+      </div>
+    </div>
+    <div class="bars">
+      <div class="bar hp"><i id="b-hp"></i><span id="t-hp">PV</span></div>
+      <div class="bar en"><i id="b-en"></i><span id="t-en">ÉNERGIE</span></div>
+      <div class="bar xp"><i id="b-xp"></i><span id="t-xp">XP</span></div>
+    </div>
+    <div class="hud-sub"><span id="h-sub"></span><span id="h-regen"></span></div>
+    <div id="chips" class="chips"></div>
+  </header>
+
+  <!-- ===== Scène + récit ===== -->
+  <main id="stage">
+    <div id="screen" class="frame screen">
+      <video id="scene" playsinline webkit-playsinline preload="auto" poster="img/lobby_bg.webp"></video>
+      <div id="tap" class="tap hidden"><span>▶ Toucher pour voir la scène</span></div>
+      <div id="caption" class="caption">🏰 Le village t'attend…</div>
+      <button id="mute" class="mute" aria-label="Son">🔊</button>
+    </div>
+    <div id="log" class="log" aria-live="polite"></div>
+  </main>
+
+  <!-- ===== Commandes ===== -->
+  <nav id="panel" class="frame">
+    <div id="cat-info" class="cat-info"></div>
+    <div id="cmds" class="cmds"></div>
+    <div id="tabs" class="tabs" role="tablist"></div>
+  </nav>
+</div>
+
+<!-- ===== Feuille de choix (arguments) ===== -->
+<div id="sheet" class="sheet hidden" role="dialog" aria-modal="true">
+  <div class="sheet-card frame">
+    <div class="sheet-head"><h2 id="sheet-title"></h2><button id="sheet-x" class="x" aria-label="Fermer">✕</button></div>
+    <div id="sheet-body" class="sheet-body"></div>
+  </div>
+</div>
+<div id="fx" class="fx"></div>
+<noscript><p style="color:#fff;padding:1em">Active JavaScript pour jouer.</p></noscript>
+
+<script src="js/default-save.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

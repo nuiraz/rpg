@@ -1,0 +1,12 @@
+{
+  "name": "RPG de Nathan",
+  "short_name": "RPG",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0f1e",
+  "theme_color": "#0b0f1e",
+  "lang": "fr",
+  "icons": [{ "src": "img/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+}
