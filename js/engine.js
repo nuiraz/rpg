@@ -193,6 +193,7 @@
     const clock = opts.now || (() => Date.now()); // ms
     const defaultSave = opts.defaultSave || null;
     let NOW = 0, TODAY = '', YESTERDAY = '';
+    let TRACE = []; // journal d'événements pour les animations (n'influence pas le jeu)
 
     function setClock() {
       const ms = clock(); NOW = ms / 1000;
@@ -276,7 +277,7 @@
       if (p < need) return '⛏️ Il te faut une meilleure pioche (/recettes).';
       if (!spend(s, 1)) return noen(s, 1);
       const bonus = 1 + (p >= 3 && random() < 0.3 ? 1 : 0);
-      if (kind === 'diamant' && random() < 0.5) { dc(s, 'mine'); return '💎 Tu creuses... rien cette fois. (-1 ⚡)'; }
+      if (kind === 'diamant' && random() < 0.5) { dc(s, 'mine'); TRACE.push({ e: 'harvest', kind, n: 0, miss: true }); return '💎 Tu creuses... rien cette fois. (-1 ⚡)'; }
       const base = { bois: () => randint(1, 3), pierre: () => randint(1, 3), fer: () => randint(1, 2), diamant: () => 1, herbe: () => randint(1, 3) };
       // Python évalue les 5 tirages du dict ; on les consomme aussi pour garder le même nombre d'appels
       const rolls = {}; for (const k of ['bois', 'pierre', 'fer', 'diamant', 'herbe']) rolls[k] = base[k]();
@@ -286,6 +287,7 @@
       const ic = { bois: '🪓', pierre: '⛏️', fer: '⛏️', diamant: '💎', herbe: '🌿' }[kind];
       let extra = '';
       if (random() < 0.04) { add(s, 'cristal'); extra = '\n✨ TROUVAILLE RARE : un cristal magique !'; }
+      TRACE.push({ e: 'harvest', kind, n, lucky: bonus > 1, crystal: !!extra });
       return `${ic} +${n} ${kind}${bonus > 1 ? ' (pioche chanceuse x2 !)' : ''}${extra}\n⚡ ${s.energy}/${MAXEN}` + gain(s, xp);
     }
     const attack = s => 5 + SWORD[s.sword] + s.lvl * 2 + s.ench * 3 + (s.pet ? 4 : 0);
@@ -293,13 +295,17 @@
       let [name, hp, dmg, xp, gold] = MOBS[Math.min(idx, MOBS.length - 1)];
       const atk = attack(s), red = ARMOR[s.armor];
       const log = [`⚔️ Un ${name} apparaît ! (${hp} PV)`];
+      TRACE.push({ e: 'fight', mob: name, idx: Math.min(idx, MOBS.length - 1), boss, hp, max: hp, php: s.hp, pmax: s.maxhp });
       while (hp > 0 && s.hp > 0) {
-        hp -= randint(atk - 3, atk + 3);
+        const roll = randint(atk - 3, atk + 3); hp -= roll;
+        TRACE.push({ e: 'hit', by: 'hero', d: roll, crit: roll === atk + 3, hp: Math.max(0, hp) });
         if (hp <= 0) break;
-        s.hp -= Math.max(1, pyint(randint(dmg - 2, dmg + 2) * red));
+        const raw = randint(dmg - 2, dmg + 2), d = Math.max(1, pyint(raw * red)); s.hp -= d;
+        TRACE.push({ e: 'hit', by: 'mob', d, crit: raw === dmg + 2, php: Math.max(0, s.hp) });
       }
       if (s.hp <= 0) {
         s.hp = fdiv(s.maxhp, 2); const lost = fdiv(s.or, 2); s.or -= lost;
+        TRACE.push({ e: 'end', win: false, lost });
         return [log.join('\n') + `\n💀 Tu es mort ! Tu perds ${lost} or (l'or en banque est protégé 🏦) et reviens avec ${s.hp} PV.`, false];
       }
       if (s.pet) gold = pyint(gold * 1.1) + 1;
@@ -309,6 +315,7 @@
         if (random() < pr) { const n = randint(q[0], q[1]); add(s, it, n); loot += ` +${n} ${it}`; }
       }
       if (boss) { s.boss += 1; add(s, 'diamant', 3); loot += ' +3 diamant'; }
+      TRACE.push({ e: 'end', win: true, gold, xp });
       return [log.join('\n') + `\n🏆 Victoire ! +${gold} or, +${xp} XP.${loot ? ' Butin :' + loot : ''}\n❤️ ${s.hp}/${s.maxhp}` + gain(s, xp), true];
     }
     function status(s) {
@@ -382,10 +389,11 @@
         if (!spend(s, 15)) return noen(s, 15);
         const out = ['🏰 Tu entres dans le donjon (3 étages)...']; let ok = true;
         for (let fl = 0; fl < 3; fl++) {
+          TRACE.push({ e: 'floor', n: fl + 1 });
           let r; [r, ok] = fight(s, Math.min(fdiv(s.lvl, 2) + fl, 4)); out.push(`— Étage ${fl + 1} —\n` + r);
           if (!ok) break;
         }
-        if (ok) { s.donjons += 1; const g = 100 + 30 * s.lvl; s.or += g; add(s, 'cristal'); out.push(`🎁 Coffre du donjon : +${g} or et 1 cristal !`); }
+        if (ok) { s.donjons += 1; const g = 100 + 30 * s.lvl; s.or += g; add(s, 'cristal'); TRACE.push({ e: 'chest', g }); out.push(`🎁 Coffre du donjon : +${g} or et 1 cristal !`); }
         return done(out.join('\n'));
       }
       if (cmd === 'soin') {
@@ -465,6 +473,7 @@
       if (cmd === 'pecher') {
         if (!spend(s, 1)) return noen(s, 1);
         const r = random();
+        TRACE.push({ e: 'fish', res: r < 0.2 ? 'rien' : (r < 0.25 ? 'perle' : 'poisson') });
         if (r < 0.2) return done(`🎣 Rien ne mord... ⚡ ${s.energy}/${MAXEN}`, false);
         if (r < 0.25) { add(s, 'perle'); return done('🎣 Tu remontes une **perle** brillante ! (vaut ~120 or)' + gain(s, 20)); }
         const n = randint(1, 3); add(s, 'poisson', n); dc(s, 'mine', n); s.mined += n; return done(`🎣 +${n} poisson(s) ! (/manger pour +25 ❤️) ⚡ ${s.energy}/${MAXEN}` + gain(s, 3));
@@ -520,13 +529,16 @@
         const f = s.floor + 1, idx = Math.min(fdiv(f, 4), 5);
         let [name, hp, dmg, xp, gold] = MOBS[idx]; const k = 1 + f * 0.12;
         const atk = attack(s); hp = pyint(hp * k); dmg = pyint(dmg * k);
+        TRACE.push({ e: 'fight', mob: name, idx, tour: f, scale: k, hp, max: hp, php: s.hp, pmax: s.maxhp });
         while (hp > 0 && s.hp > 0) {
-          hp -= randint(atk - 3, atk + 3);
+          const roll = randint(atk - 3, atk + 3); hp -= roll;
+          TRACE.push({ e: 'hit', by: 'hero', d: roll, crit: roll === atk + 3, hp: Math.max(0, hp) });
           if (hp <= 0) break;
-          s.hp -= Math.max(1, pyint(randint(Math.max(1, dmg - 2), dmg + 2) * ARMOR[s.armor]));
+          const raw = randint(Math.max(1, dmg - 2), dmg + 2), d = Math.max(1, pyint(raw * ARMOR[s.armor])); s.hp -= d;
+          TRACE.push({ e: 'hit', by: 'mob', d, crit: raw === dmg + 2, php: Math.max(0, s.hp) });
         }
-        if (s.hp <= 0) { s.hp = fdiv(s.maxhp, 2); return done(`🗼 Étage ${f} : un ${name} te terrasse ! Tu restes à l'étage ${s.floor} (record). ❤️ ${s.hp}/${s.maxhp}`, false); }
-        s.floor = f; const g = pyint(gold * k) + 10 * f; s.or += g; let r = `🗼 Tour infinie — **étage ${f}** vaincu (${name}) : +${g} or, ❤️ ${s.hp}/${s.maxhp}`;
+        if (s.hp <= 0) { s.hp = fdiv(s.maxhp, 2); TRACE.push({ e: 'end', win: false, lost: 0 }); return done(`🗼 Étage ${f} : un ${name} te terrasse ! Tu restes à l'étage ${s.floor} (record). ❤️ ${s.hp}/${s.maxhp}`, false); }
+        s.floor = f; const g = pyint(gold * k) + 10 * f; TRACE.push({ e: 'end', win: true, gold: g, xp }); s.or += g; let r = `🗼 Tour infinie — **étage ${f}** vaincu (${name}) : +${g} or, ❤️ ${s.hp}/${s.maxhp}`;
         if (f % 5 === 0) { add(s, 'cristal'); r += '\n🎁 Palier de 5 étages : +1 cristal !'; }
         return done(r + gain(s, xp));
       }
@@ -553,10 +565,10 @@
     }
 
     function run(cmd, args) {
-      setClock();
+      setClock(); TRACE = [];
       cmd = String(cmd || '').replace(/^\/+/, '').toLowerCase();
       const text = runText(cmd, args || []);
-      return { text, media: mediaFor(cmd, text) };
+      return { text, media: mediaFor(cmd, text), events: TRACE };
     }
 
     /* Vue lecture seule pour le HUD / l'UI (ne sauvegarde rien, comme le chargement Python) */
