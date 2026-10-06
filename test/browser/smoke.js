@@ -37,7 +37,7 @@ const puppeteer = require('puppeteer-core');
   await clickCmd('marche', 'Vendre'); await page.waitForSelector('#sheet:not(.hidden)');
   const sellOpts = await page.$$eval('.opt', os => os.map(o => o.innerText.replace(/\n/g, ' ')));
   steps.push({ label: 'sell picker', sellOpts });
-  await page.screenshot({ path: '/workspace/rpg-web/test/screenshot-picker.png' });
+  await new Promise(r => setTimeout(r, 400)); await page.screenshot({ path: '/workspace/rpg-web/test/screenshot-picker.png' });
   await page.click('#sheet-x');
   // combat sequence check: video should go combat -> victoire/mort
   await clickCmd('combat', 'Combattre');
